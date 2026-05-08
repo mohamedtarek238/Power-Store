@@ -45,3 +45,18 @@ td{font-size:14px}
 .login-card .admin-muted{color:var(--muted);margin-bottom:16px}
 .login-form{display:flex;flex-direction:column;gap:12px}
 .login-form input{padding:10px;border-radius:6px;border:1px solid #e6e9ee;color:var(--text)}
+.products-heading{margin:0 0 12px}
+.products-loading,.products-error,.products-empty{
+  background:var(--card);
+  border:1px solid #e6e9ee;
+  border-radius:8px;
+  padding:14px;
+  color:var(--muted);
+}
+.products-error{color:#b91c1c;border-color:#fecaca;background:#fff1f2}
+.products-table-wrap{overflow-x:auto}
+
+@media (max-width: 900px){
+  .admin-main{padding:16px}
+  th,td{padding:8px;font-size:13px}
+}

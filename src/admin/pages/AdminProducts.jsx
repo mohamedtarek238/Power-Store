@@ -1,7 +1,28 @@
-import React, { useState } from 'react';
-import { initialProducts } from '../data/mockData';
+import React, { useEffect, useState } from 'react';
+import useProducts from '../hooks/useProducts';
 
-function ProductForm({initial, onSave, onClose}){
+const PRODUCTS_API_URL = 'http://localhost:5000/api/products/';
+const FALLBACK_IMAGE = 'https://via.placeholder.com/80?text=No+Image';
+
+const formatCategory = (category) => {
+  if (!category) return 'Uncategorized';
+  if (typeof category === 'string') return category;
+  if (typeof category === 'object') return category.name || category.title || 'Uncategorized';
+  return 'Uncategorized';
+};
+
+const normalizeProduct = (product) => ({
+  id: product._id || product.id,
+  image: product.image || FALLBACK_IMAGE,
+  name: product.name || 'Untitled Product',
+  description: product.description || '',
+  price: Number(product.price || 0),
+  category: formatCategory(product.category),
+  stock: Number(product.stock ?? product.countInStock ?? 0),
+  isActive: typeof product.isActive === 'boolean' ? product.isActive : true
+});
+
+function ProductForm({initial, onSave, onClose, saving}){
   const [form, setForm] = useState(initial || {
     name: '',
     description: '',
@@ -112,8 +133,9 @@ function ProductForm({initial, onSave, onClose}){
               }
               onSave(form);
             }}
+            disabled={saving}
           >
-            Save
+            {saving ? 'Saving...' : 'Save'}
           </button>
         </div>
       </div>
@@ -122,13 +144,20 @@ function ProductForm({initial, onSave, onClose}){
 }
 
 export default function AdminProducts(){
-  const [products, setProducts] = useState(initialProducts);
+  const { products: apiProducts, loading, error } = useProducts();
+  const [products, setProducts] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+
+  useEffect(() => {
+    setProducts(apiProducts);
+  }, [apiProducts]);
 
   function handleAdd(){ setEditing(null); setModalOpen(true); }
 
-  function handleSave(data){
+  async function handleSave(data){
     const item = {
       ...data,
       price: parseFloat(data.price)||0,
@@ -138,11 +167,42 @@ export default function AdminProducts(){
 
     if(editing){
       setProducts(p=>p.map(x=> x.id===editing.id ? {...x, ...item} : x));
-    } else {
-      const id = 'p'+(Math.random()*100000|0);
-      setProducts(p => [{ id, ...item }, ...p]);
+      setModalOpen(false);
+      return;
     }
-    setModalOpen(false);
+
+    try {
+      setSaving(true);
+      setSaveError('');
+
+      const response = await fetch(PRODUCTS_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: item.name,
+          description: item.description,
+          price: item.price,
+          stock: item.stock,
+          countInStock: item.stock,
+          category: item.category,
+          image: item.image,
+          isActive: item.isActive
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to add product (${response.status})`);
+      }
+
+      const created = await response.json();
+      const createdProduct = normalizeProduct(created?.product || created);
+      setProducts((prev) => [createdProduct, ...prev]);
+      setModalOpen(false);
+    } catch (err) {
+      setSaveError(err.message || 'Unable to add product. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   function handleEdit(p){ setEditing(p); setModalOpen(true); }
@@ -161,57 +221,62 @@ export default function AdminProducts(){
         </div>
       </div>
 
-      <div className="table">
-        <table>
-          <thead>
-            <tr>
-              <th>Image</th>
-              <th>Name</th>
-              <th>Description</th>
-              <th>Price</th>
-              <th>Stock</th>
-              <th>Category</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {products.map(p => (
-              <tr key={p.id}>
-                <td>
-                  <img
-                    src={p.image || 'https://via.placeholder.com/80?text=No+Image'}
-                    alt="thumb"
-                    className="thumb"
-                    onError={(e) => {
-                      e.target.src = 'https://via.placeholder.com/80?text=No+Image';
-                    }}
-                  />
-                </td>
-                <td>{p.name}</td>
-                <td style={{maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis'}}>
-                  {p.description || 'No description'}
-                </td>
-                <td>${p.price.toFixed(2)}</td>
-                <td>{p.stock}</td>
-                <td>{p.category || 'General'}</td>
-                <td>
-                  <span className={`status ${p.isActive ? 'completed' : 'cancelled'}`}>
-                    {p.isActive ? 'Active' : 'Inactive'}
-                  </span>
-                </td>
-                <td>
-                  <button className="btn ghost" onClick={()=>handleEdit(p)}>Edit</button>
-                  <button className="btn" style={{marginLeft:8}} onClick={()=>handleDelete(p.id)}>Delete</button>
-                </td>
+      {loading && <div className="products-loading">Loading products...</div>}
+      {error && <div className="products-error">{error}</div>}
+      {saveError && <div className="products-error">{saveError}</div>}
+      {!loading && !error && (
+        <div className="table products-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Image</th>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Price</th>
+                <th>Stock</th>
+                <th>Category</th>
+                <th>Status</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {products.map(p => (
+                <tr key={p.id}>
+                  <td>
+                    <img
+                      src={p.image || 'https://via.placeholder.com/80?text=No+Image'}
+                      alt="thumb"
+                      className="thumb"
+                      onError={(e) => {
+                        e.target.src = 'https://via.placeholder.com/80?text=No+Image';
+                      }}
+                    />
+                  </td>
+                  <td>{p.name}</td>
+                  <td style={{maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis'}}>
+                    {p.description || 'No description'}
+                  </td>
+                  <td>${p.price.toFixed(2)}</td>
+                  <td>{p.stock}</td>
+                  <td>{p.category || 'General'}</td>
+                  <td>
+                    <span className={`status ${p.isActive ? 'completed' : 'cancelled'}`}>
+                      {p.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  <td>
+                    <button className="btn ghost" onClick={()=>handleEdit(p)}>Edit</button>
+                    <button className="btn" style={{marginLeft:8}} onClick={()=>handleDelete(p.id)}>Delete</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {modalOpen && (
-        <ProductForm initial={editing} onSave={handleSave} onClose={()=>setModalOpen(false)} />
+        <ProductForm initial={editing} onSave={handleSave} onClose={()=>setModalOpen(false)} saving={saving} />
       )}
     </div>
   );
