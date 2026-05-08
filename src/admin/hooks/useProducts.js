@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { adminFetch } from '../utils/adminApi';
 
 const PRODUCTS_API_URL = 'http://localhost:5000/api/products';
 const FALLBACK_IMAGE = 'https://via.placeholder.com/80?text=No+Image';
@@ -34,7 +35,7 @@ export default function useProducts() {
         setLoading(true);
         setError('');
 
-        const response = await fetch(PRODUCTS_API_URL, { signal: controller.signal });
+        const response = await adminFetch(PRODUCTS_API_URL, { signal: controller.signal });
         if (!response.ok) {
           throw new Error(`Failed to fetch products (${response.status})`);
         }

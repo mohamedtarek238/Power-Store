@@ -13,6 +13,8 @@ import AdminLayout from './admin/components/AdminLayout';
 import AdminDashboard from './admin/pages/AdminDashboard';
 import AdminProducts from './admin/pages/AdminProducts';
 import AdminOrders from './admin/pages/AdminOrders';
+import LoginPage from './pages/LoginPage';
+import ProtectedAdminRoute from './admin/components/ProtectedAdminRoute';
 
 function AppContent() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,7 +43,8 @@ function AppContent() {
                   }
                 />
                 <Route path="/about" element={<AboutPage />} />
-                <Route path="/admin" element={<AdminLayout />}>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/admin" element={<ProtectedAdminRoute><AdminLayout /></ProtectedAdminRoute>}>
                   <Route index element={<Navigate to="dashboard" replace />} />
                   <Route path="dashboard" element={<AdminDashboard />} />
                   <Route path="products" element={<AdminProducts />} />

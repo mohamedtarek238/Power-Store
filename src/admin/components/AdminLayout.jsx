@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import '../styles/admin.css';
+import { clearAdminToken } from '../utils/auth';
 
 function Sidebar() {
   const navigate = useNavigate();
@@ -26,7 +27,11 @@ function Sidebar() {
         <li>
           <a
             href="#logout"
-            onClick={(e) => { e.preventDefault(); navigate('/login'); }}
+            onClick={(e) => {
+              e.preventDefault();
+              clearAdminToken();
+              navigate('/login', { replace: true });
+            }}
           >
             Logout
           </a>
