@@ -9,6 +9,10 @@ import Cart from './components/Cart';
 import { getTranslation } from './utils/translations';
 import HomePage from './pages/HomePage';
 import AboutPage from './pages/AboutPage';
+import AdminLayout from './admin/components/AdminLayout';
+import AdminDashboard from './admin/pages/AdminDashboard';
+import AdminProducts from './admin/pages/AdminProducts';
+import AdminOrders from './admin/pages/AdminOrders';
 
 function AppContent() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -37,6 +41,12 @@ function AppContent() {
                   }
                 />
                 <Route path="/about" element={<AboutPage />} />
+                <Route path="/admin" element={<AdminLayout />}>
+                  <Route index element={<Navigate to="dashboard" replace />} />
+                  <Route path="dashboard" element={<AdminDashboard />} />
+                  <Route path="products" element={<AdminProducts />} />
+                  <Route path="orders" element={<AdminOrders />} />
+                </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
 
