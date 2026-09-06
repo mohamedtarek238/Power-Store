@@ -1,3 +1,298 @@
+# Power Store - Project Context
+This file is the verified engineering context for the current repository. It describes the code that exists in `D:\power_store`; backend details are only documented where the frontend currently assumes them.
+
+## Project Overview
+
+Power Store is a React 18 e-commerce storefront with a separate admin area. The customer storefront is a frontend-only experience built around a static product catalog. The admin area is protected by a token stored in browser `localStorage` and communicates with a backend assumed to run at `http://localhost:5000`.
+
+The application currently supports:
+
+- Customer storefront at `/`.
+- About page at `/about`.
+- Admin login at `/login`.
+- Protected admin dashboard at `/admin/dashboard`.
+- Admin product management at `/admin/products`.
+- Admin orders view at `/admin/orders`.
+- English and Arabic localization with RTL support.
+- Cart, wishlist, and toast contexts.
+- Static storefront product data and backend-backed admin product listing.
+
+There is no backend repository in this workspace, so backend behavior described below is an integration contract inferred from frontend requests rather than verified server implementation.
+
+## Tech Stack
+
+| Area | Current implementation |
+| --- | --- |
+| UI | React 18.2 with JSX |
+| Routing | React Router DOM 6.30 |
+| Build tool | Vite 5 |
+| Icons | React Icons 4.12 |
+| Styling | Custom CSS plus Tailwind CSS v4/PostCSS |
+| State | React state and Context API |
+| Persistence | Browser `localStorage` |
+| HTTP | Native `fetch` |
+| Backend URL used by admin | `http://localhost:5000` |
+| Backend URL in unused utility | `http://localhost:5001/api` |
+
+Tailwind is imported from the first line of `src/index.css` and is used by `LoginPage.jsx`. The main storefront and admin dashboard also use custom CSS classes.
+
+## Repository Structure
+
+```text
+power_store/
+├── index.html
+├── package.json
+├── package-lock.json
+├── postcss.config.js
+├── vite.config.js
+├── README.md
+├── PROJECT_CONTEXT.md
+└── src/
+    ├── App.jsx
+    ├── index.css
+    ├── main.jsx
+    ├── test.yaml                 # Empty; no test suite is configured
+    ├── components/               # Storefront UI
+    ├── context/                  # Cart, wishlist, language, and toast state
+    ├── data/products.js          # Static storefront catalog
+    ├── locales/                  # English and Arabic dictionaries
+    ├── pages/                    # Home, About, and Login pages
+    ├── utils/                    # Translation and legacy product API helpers
+    └── admin/
+        ├── components/            # Layout, route guard, and product table
+        ├── data/mockData.js       # Mock admin order data and fallback products
+        ├── hooks/useProducts.js   # Admin product GET request
+        ├── pages/                 # Dashboard, Products, and Orders
+        ├── styles/admin.css       # Admin dashboard styling
+        └── utils/                 # Admin token and authenticated fetch helpers
+```
+
+## Application Composition
+
+`src/main.jsx` creates the React root, enables `React.StrictMode`, and renders `App`.
+
+`src/App.jsx` mounts providers in this order:
+
+```text
+LanguageProvider
+└── AppContent
+    └── ToastProvider
+        └── WishlistProvider
+            └── CartProvider
+                └── BrowserRouter
+                    ├── Header
+                    ├── Routes
+                    ├── Footer
+                    └── Cart
+```
+
+The admin routes are rendered inside the same router. The public header, footer, and cart are still mounted around the route content, including on admin pages.
+
+## Routes
+
+| Route | Access | Component | Behavior |
+| --- | --- | --- | --- |
+| `/` | Public | `HomePage` | Hero, search, category filters, sorting, price filters, product cards, and product detail modal. |
+| `/about` | Public | `AboutPage` | Store information, values, features, contact details, and age notice. |
+| `/login` | Public | `LoginPage` | Admin username/password login against the backend. Authenticated users redirect to the dashboard. |
+| `/admin` | Protected | `AdminLayout` | Redirects to `/admin/dashboard` when authenticated. |
+| `/admin/dashboard` | Protected | `AdminDashboard` | Displays product count, mock order count, mock revenue, and a product table. |
+| `/admin/products` | Protected | `AdminProducts` | Loads products, creates products, edits products, and locally removes products. |
+| `/admin/orders` | Protected | `AdminOrders` | Displays mock orders only. |
+| Any other path | Public redirect | `Navigate` | Redirects to `/`. |
+
+`ProtectedAdminRoute` checks only whether `localStorage.adminToken` exists. It does not verify token expiry locally.
+
+## Storefront
+
+### Product data
+
+The customer storefront reads from `src/data/products.js`, not from the backend. Each static product contains:
+
+```js
+{
+  id,
+  name,
+  price,
+  image,
+  category,
+  description,
+  featured
+}
+```
+
+Prices are numbers in Egyptian Pounds. Current categories are `Sets`, `Care`, `Wellness`, `Lingerie`, `Accessories`, and `Fragrance`. Images are external Unsplash URLs.
+
+### Home page behavior
+
+`HomePage.jsx` applies filters in this order:
+
+1. Category selection.
+2. Search against product name, description, and category.
+3. Price range.
+4. Sorting.
+
+Sort options are default order, price low-to-high, price high-to-low, name A-to-Z, and name Z-to-A.
+
+The price labels map to these actual EGP ranges:
+
+| UI value | Actual range |
+| --- | --- |
+| `0-50` | EGP 0 to 2,000 |
+| `50-100` | Above EGP 2,000 to 4,000 |
+| `100-150` | Above EGP 4,000 to 6,000 |
+| `150+` | Above EGP 6,000 |
+
+### Storefront state
+
+- `CartContext` stores cart items, quantities, totals, and sidebar visibility.
+- `WishlistContext` stores saved products and wishlist operations.
+- `LanguageContext` switches between `en` and `ar`, persists the selection, and updates the document direction.
+- `ToastContext` displays temporary success/error messages.
+- `AppContent` stores the global product search query.
+
+Cart and wishlist values are persisted under `cart` and `wishlist` in `localStorage`. The selected language is stored under `language`.
+
+### Checkout
+
+`Checkout.jsx` validates full name, email, phone, address, city, and postal code. Card number, cardholder name, expiry, and CVV are additionally validated when card payment is selected.
+
+Checkout is simulated. On successful validation, it shows a success toast, clears the cart after 1.5 seconds, closes the modal, and resets the form. It does not create a real order or send payment information to a server.
+
+## Admin Area
+
+### Authentication
+
+`LoginPage.jsx` sends:
+
+```http
+POST http://localhost:5000/api/admin/login
+Content-Type: application/json
+```
+
+```json
+{
+  "username": "...",
+  "password": "..."
+}
+```
+
+The response may provide a token under `token`, `jwt`, `accessToken`, or `data.token`. The token is saved as `adminToken` in `localStorage`.
+
+`adminFetch()` adds `Authorization: Bearer <token>` when a token exists. It does not force a `Content-Type`, which is required for browser-generated multipart boundaries.
+
+Logout removes `adminToken` and navigates to `/login`.
+
+### Admin dashboard
+
+`AdminDashboard.jsx` fetches products through `useProducts()` and uses `initialOrders` from `src/admin/data/mockData.js` for order count and revenue. The dashboard metrics are therefore mixed: products are fetched, while orders and revenue are mock values.
+
+### Admin products
+
+`useProducts.jsx` requests:
+
+```http
+GET http://localhost:5000/api/products
+```
+
+It accepts either a raw array or `{ "products": [] }` and normalizes `_id` to `id`, numeric price/stock values, category labels, active state, and a fallback image.
+
+`AdminProducts.jsx` uses:
+
+```http
+POST http://localhost:5000/api/products/
+PUT  http://localhost:5000/api/products/:id
+```
+
+Create and update requests use `FormData` with these fields:
+
+| Field | Create | Update |
+| --- | --- | --- |
+| `name` | Required | Required |
+| `description` | Required | Required |
+| `price` | Required and greater than 0 | Required and greater than 0 |
+| `stock` | Required and non-negative | Required and non-negative |
+| `image` | Required file | Only sent when a replacement file is selected |
+
+The frontend does not manually set `Content-Type` for these requests.
+
+The Delete button currently removes the row from local React state only. It does not call a backend DELETE endpoint, so a reload restores the product.
+
+### Admin orders
+
+`AdminOrders.jsx` displays `initialOrders` from `src/admin/data/mockData.js`. There is no order API call or order mutation flow in the current frontend.
+
+## Backend Integration Contract
+
+The backend is not included in this workspace. The active admin code assumes:
+
+- API origin: `http://localhost:5000`.
+- Login endpoint: `POST /api/admin/login`.
+- Product list endpoint: `GET /api/products`.
+- Product create endpoint: `POST /api/products/` with multipart form data.
+- Product update endpoint: `PUT /api/products/:id` with multipart form data.
+- Bearer authentication is accepted for protected admin requests.
+
+The frontend does not currently verify that these endpoints exist or that the server supports the exact response shapes. CORS must allow the Vite development origin.
+
+## Legacy or Unused API Utility
+
+`src/utils/productUtils.js` contains a separate `api` object and `API_BASE = 'http://localhost:5001/api'`. It uses JSON requests for product CRUD and is not imported by the current `App`, `HomePage`, or admin pages. Do not treat it as the active API path without first refactoring callers and reconciling its contract with the admin code.
+
+## Localization and Currency
+
+Translations are defined in `src/locales/en.js` and `src/locales/ar.js`. `src/utils/translations.js` provides:
+
+- `getTranslation(language, path)` for dot-separated keys.
+- `formatCurrency(amount, language)` using EGP formatting, displaying `E£` in English and `ج.م` in Arabic.
+
+The language provider updates `document.documentElement.lang` and `document.documentElement.dir`. Some About page and admin text is still written inline rather than in the locale dictionaries.
+
+## Styling
+
+- `src/index.css` contains storefront styles, responsive rules, animations, dark theme variables, and the Tailwind v4 import.
+- `src/admin/styles/admin.css` contains the light admin dashboard theme, tables, cards, forms, modal, status badges, and responsive admin rules.
+- `LoginPage.jsx` uses Tailwind utility classes.
+
+## Commands
+
+```bash
+npm install
+npm run dev
+npm run build
+npm run preview
+```
+
+Available scripts are `dev`, `build`, and `preview`. There is no test or lint script in `package.json`, and `src/test.yaml` is empty.
+
+## Known Limitations
+
+- Storefront products are static and are not loaded from the backend.
+- Checkout is a simulation with no real order or payment processing.
+- Admin orders and revenue are mock data.
+- Admin delete is local-only.
+- There is no local token expiry or refresh-token flow.
+- The 18+ requirement is shown in the UI but there is no age-verification gate.
+- The Header wishlist button looks for a `#wishlist` section, but no dedicated wishlist section is currently rendered.
+- Product images depend on external URLs.
+- Contact information in the About page is static.
+- `src/utils/productUtils.js` uses a different, currently unused API origin and JSON contract.
+- `README.md` is a short summary and contains stale customization references; this file is the more complete context reference.
+
+## Recommended Next Changes
+
+1. Add a single environment-based API constant, such as `VITE_API_URL`, and remove the unused `5001` helper or make it the shared implementation.
+2. Connect storefront products to the same product API used by the admin area, with a static fallback if desired.
+3. Implement backend DELETE and refresh/invalidate product data after mutations.
+4. Replace mock admin orders with a real orders endpoint.
+5. Send checkout data to a backend order service and integrate a compliant payment provider.
+6. Add token expiry handling and redirect on `401` responses.
+7. Add automated tests for filters, cart totals, persistence, route protection, and checkout validation.
+8. Move remaining inline user-facing strings into the English and Arabic locale files.
+
+---
+
+Last verified against the current files in `src/`, `package.json`, `postcss.config.js`, and `vite.config.js` on 2026-09-06.
 # Power Store — PROJECT_CONTEXT
 
 Professional reference for engineers and AI assistants. This repo is primarily the **React (Vite) frontend**. The backend is assumed to run separately (e.g. Node/Express on port **5000**). Adjust URLs for production deployments.

@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { extractTokenFromResponse, isAdminAuthenticated, setAdminToken } from '../admin/utils/auth';
 
-const ADMIN_LOGIN_API = 'http://localhost:5000/api/admin/login';
+const ADMIN_LOGIN_API = 'http://localhost:5000/api/auth/login';
 
 function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -25,7 +25,7 @@ function LoginPage() {
       const response = await fetch(ADMIN_LOGIN_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ email, password })
       });
 
       const payload = await response.json();
@@ -55,15 +55,15 @@ function LoginPage() {
 
         <form className="mt-6 space-y-4" onSubmit={handleLogin}>
           <div>
-            <label htmlFor="username" className="mb-1 block text-sm font-medium text-slate-200">
-              Username
+            <label htmlFor="email" className="mb-1 block text-sm font-medium text-slate-200">
+              Email
             </label>
             <input
-              id="username"
-              placeholder="Enter your username"
-              type="text"
-              value={username}
-              onChange={e => setUsername(e.target.value)}
+              id="email"
+              placeholder="Enter your email"
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
               required
               className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 outline-none transition focus:border-indigo-500"
             />
